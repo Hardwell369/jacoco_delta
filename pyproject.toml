@@ -1,0 +1,97 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jacoco-delta"
+version = "0.1.0"
+description = "A tool for analyzing differences in JaCoCo code coverage reports to identify bug-related coverage changes"
+readme = "README.md"
+authors = [{name = "Jie Wu", email = "1794185873@qq.com"}]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "typing_extensions>=4.0.0,<5.0.0",
+    "uiautomator2>=2.14.0,<3.0.0",
+    "structlog>=23.1,<24.0",
+]
+requires-python = ">=3.8,<3.13"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0,<8.0",
+    "pytest-cov>=2.10,<5.0",
+    "black>=21.0,<23.0",
+    "flake8>=3.8,<6.0",
+    "mypy>=0.910,<2.0",
+]
+test = [
+    "pytest>=6.0,<8.0",
+    "pytest-cov>=2.10,<5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Hardwell369/jacoco_delta"
+Repository = "https://github.com/Hardwell369/jacoco_delta"
+Documentation = "https://github.com/Hardwell369/jacoco_delta/blob/main/README.md"
+"Issue Tracker" = "https://github.com/Hardwell369/jacoco_delta/issues"
+
+[tool.setuptools_scm]
+write_to = "src/jacoco_delta/_version.py"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+jacoco_delta = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=jacoco_delta --cov-report=html --cov-report=term-missing"
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests"
+]
+
+[tool.mypy]
+python_version = "3.8"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+strict_optional = true
+
+[project.scripts]
+jacoco-delta = "jacoco_delta.cli:main"
