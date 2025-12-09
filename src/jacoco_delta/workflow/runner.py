@@ -1,5 +1,5 @@
 """
-工作流运行器模块，负责协调整个覆盖率差异分析流程
+工作流运行器模块, 负责协调整个覆盖率差异分析流程
 """
 
 import os
@@ -8,7 +8,7 @@ from typing import List, Tuple, Callable
 
 from .config import Config
 from ..utils.adb_wrapper import AdbWrapper
-from ..utils.data_types import TestCase, PairTestCase, FullAnalysisResult, PairAnalysisResult, LineCoverageData, BranchCoverageData, CoverageDiffResult
+from ..utils.data_types import *
 from ..utils.reproducer import Reproducer
 from ..utils.logger import configure_logger, get_logger
 from ..core.parser import parse_jacoco_line_coverage, parse_jacoco_branch_coverage
@@ -17,7 +17,7 @@ from ..core.calculator import calculate_line_coverage_increment, calculate_branc
 from ..utils.report_generator import ReportGenerator
 
 class WorkflowRunner:
-    """工作流运行器，协调整个覆盖率差异分析流程"""
+    """工作流运行器, 协调整个覆盖率差异分析流程"""
 
     def __init__(self, config: Config, init_operation: Callable = lambda: None, ec_file_generator: Callable = lambda: None):
         """
@@ -32,9 +32,10 @@ class WorkflowRunner:
         self.init_operation = init_operation
         self.ec_file_generator = ec_file_generator
         self.reproducer = Reproducer(AdbWrapper(config.adb_path), config.app_package, config.apk_path, config.device_serial)
-        self.report_generator = ReportGenerator(self.config.app_source_path)
-        configure_logger(config.report_output_path, "workflow.log")
+        self.report_generator = ReportGenerator(self.config.app_source_dir)
+        configure_logger(self.config.report_output_dir, "workflow.log")
         self.logger = get_logger("runner")
+
 
     def run_full_analysis(self, pair_test_cases: List[PairTestCase]) -> FullAnalysisResult:
         """
@@ -59,7 +60,7 @@ class WorkflowRunner:
             
             # 为每对测试用例创建独立的输出目录
             case_output_dir = os.path.join(
-                self.config.report_output_path, 
+                self.config.report_output_dir, 
                 pair_case.case_name
             )
             os.makedirs(case_output_dir, exist_ok=True)
@@ -71,18 +72,20 @@ class WorkflowRunner:
             pair_results.append(pair_result)
         
         # 计算总体差异
-        overall_diff_result = self._calculate_overall_diff(pair_results)
+        # overall_diff_result = self._calculate_overall_diff(pair_results)
         
         full_result = FullAnalysisResult(
             pair_results=pair_results,
-            overall_diff_result=overall_diff_result
+            # overall_diff_result=overall_diff_result
         )
         
         # 生成总体报告
-        self.reproducer.generate_reproduction_report(self.config.report_output_path) # 待整合
-        self._generate_overall_report(full_result, self.config.report_output_path) # 待整合
-        self.logger.info(f"完整分析完成, 共处理 {len(pair_test_cases)} 对测试用例, 结果保存在: {self.config.report_output_path}")
+        reproducer_data = self.reproducer.data
+        output_dir = self.config.report_output_dir
+        self.report_generator.generate_comprehensive_report(full_result, reproducer_data, output_dir)
+        self.logger.info(f"完整分析完成, 共处理 {len(pair_test_cases)} 对测试用例, 结果保存在: {output_dir}")
         return full_result
+
 
     def _run_pair_analysis(self, 
                           pair_case: PairTestCase,
@@ -158,9 +161,8 @@ class WorkflowRunner:
             correct_incremental_coverage=correct_incremental
         )
         
-        self._generate_pair_report(result, output_dir)
-        
         return result
+
 
     def _run_single_flow(self, test_case: TestCase, init_operation: Callable, ec_file_generator: Callable, output_dir: str) -> Tuple[str, str]:
         """
@@ -192,8 +194,8 @@ class WorkflowRunner:
                 before_ec_path, 
                 before_output_dir, 
                 self.config.jacococli_jar_path, 
-                self.config.app_classfiles_path, 
-                self.config.app_source_path, 
+                self.config.app_classfiles_dir, 
+                self.config.app_source_dir, 
                 test_case.name
             )
             before_xml_path = before_coverage_data.xml_path
@@ -212,8 +214,8 @@ class WorkflowRunner:
                 after_ec_path, 
                 after_output_dir, 
                 self.config.jacococli_jar_path, 
-                self.config.app_classfiles_path, 
-                self.config.app_source_path, 
+                self.config.app_classfiles_dir, 
+                self.config.app_source_dir, 
                 test_case.name
             )
             after_xml_path = after_coverage_data.xml_path
@@ -224,13 +226,15 @@ class WorkflowRunner:
             # 重置环境
             self.reproducer.reset_environment()
 
+
     def _calculate_incremental_coverage(self, 
-                                      before_line_cov: LineCoverageData,
-                                      before_branch_cov: BranchCoverageData,
-                                      after_line_cov: LineCoverageData,
-                                      after_branch_cov: BranchCoverageData) -> dict:
+                                    before_line_cov: LineCoverageData,
+                                    before_branch_cov: BranchCoverageData,
+                                    after_line_cov: LineCoverageData,
+                                    after_branch_cov: BranchCoverageData
+    ) -> dict:
         """
-        计算覆盖率增量（after - before）
+        计算覆盖率增量 after - before
         
         Returns:
             包含行覆盖率和分支覆盖率增量的字典
@@ -243,9 +247,13 @@ class WorkflowRunner:
             "branch_coverage_incremental": branch_incremental
         }
 
+
     def _perform_diff_analysis(self, 
-                              first_line_cov_inc, first_branch_cov_inc,
-                              second_line_cov_inc, second_branch_cov_inc) -> CoverageDiffResult:
+                            first_line_cov_inc: LineCoverageData,
+                            first_branch_cov_inc: BranchCoverageData,
+                            second_line_cov_inc: LineCoverageData, 
+                            second_branch_cov_inc: BranchCoverageData
+    ) -> CoverageDiffResult:
         """
         执行增量覆盖率差异分析
         
@@ -256,106 +264,3 @@ class WorkflowRunner:
         branch_diff = compare_branch_diff(first_branch_cov_inc, second_branch_cov_inc)
         
         return CoverageDiffResult(line_diff, branch_diff)
-
-    # 暂时不用
-    def _calculate_overall_diff(self, pair_results: List[PairAnalysisResult]) -> CoverageDiffResult:
-        """
-        计算总体差异
-        
-        Returns:
-            总体覆盖率差异结果
-        """
-        # 这里简化处理，实际可以根据需要进行更复杂的聚合
-        # 例如合并所有pair的差异结果
-        if pair_results:
-            return pair_results[0].diff_result
-        else:
-            return CoverageDiffResult({}, {})
-
-    def _generate_pair_report(self, pair_result: PairAnalysisResult, report_dir: str) -> None:
-        """
-        生成单对测试用例分析报告
-        
-        Args:
-            pair_result: 成对分析结果
-            report_dir: 报告保存目录
-        """
-        # 生成测试用例的中间结果与可视化差异报告
-        self.logger.info(f"生成中间结果: {pair_result.case_name}")
-        data_path = os.path.join(report_dir, "data")
-        os.makedirs(data_path, exist_ok=True)
-        self.report_generator.generate_all_data_report(pair_result, data_path)
-        self.logger.info(f"生成可视化差异报告: {pair_result.case_name}")
-        self.report_generator.generate_visual_diff_report(pair_result, report_dir)
-
-        report_path = os.path.join(report_dir, f"{pair_result.case_name}_analysis_report.md")
-
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write(f"# {pair_result.case_name} 覆盖率差异分析报告\n\n")
-            f.write(f"生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            
-            # 写入基础信息
-            f.write("## 基础信息\n")
-            f.write(f"- Bug执行前XML路径: {pair_result.bug_before_xml}\n")
-            f.write(f"- Bug执行后XML路径: {pair_result.bug_after_xml}\n")
-            f.write(f"- 正确执行前XML路径: {pair_result.correct_before_xml}\n")
-            f.write(f"- 正确执行后XML路径: {pair_result.correct_after_xml}\n\n")
-
-            # 写入差异分析结果
-            f.write("## 覆盖率增量差异分析结果\n")
-            if pair_result.diff_result.line_coverage_diff:
-                f.write("### 行覆盖率增量差异\n")
-                for file_path, diff in pair_result.diff_result.line_coverage_diff.items():
-                    f.write(f"#### 文件: {file_path}\n")
-                    if diff.only_in_first:
-                        f.write("- 仅在Bug增量中出现的行:\n")
-                        for line_num, count in diff.only_in_first.items():
-                            f.write(f"  - 行 {line_num}: 覆盖{count}次\n")
-                    if diff.only_in_second:
-                        f.write("- 仅在正确执行增量中出现的行:\n")
-                        for line_num, count in diff.only_in_second.items():
-                            f.write(f"  - 行 {line_num}: 覆盖{count}次\n")
-                    f.write("\n")
-            
-            if pair_result.diff_result.branch_coverage_diff:
-                f.write("### 分支覆盖率增量差异\n")
-                for file_path, diff in pair_result.diff_result.branch_coverage_diff.items():
-                    f.write(f"#### 文件: {file_path}\n")
-                    if diff.only_in_first:
-                        f.write("- 仅在Bug增量中出现的分支:\n")
-                        for line_num, (covered, total) in diff.only_in_first.items():
-                            f.write(f"  - 行 {line_num}: 覆盖{covered}个（总分支{total}个）\n")
-                    if diff.only_in_second:
-                        f.write("- 仅在正确执行增量中出现的分支:\n")
-                        for line_num, (covered, total) in diff.only_in_second.items():
-                            f.write(f"  - 行 {line_num}: 覆盖{covered}个（总分支{total}个）\n")
-                    f.write("\n")
-        
-        self.logger.info(f"单对测试用例分析报告已生成: {report_path}")
-
-    def _generate_overall_report(self, full_result: FullAnalysisResult, base_output_path: str) -> None:
-        """
-        生成总体分析报告
-        
-        Args:
-            full_result: 完整分析结果
-            base_output_path: 基础输出路径
-        """
-        report_path = os.path.join(base_output_path, "overall_analysis_report.md")
-        
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write("# 总体覆盖率差异分析报告\n\n")
-            f.write(f"生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            
-            f.write("## 分析概览\n")
-            f.write(f"- 总共分析了 {len(full_result.pair_results)} 对测试用例\n")
-            f.write("- 各对测试用例的详细分析结果请参见对应的子目录\n\n")
-            
-            f.write("## 测试用例列表\n")
-            for pair_result in full_result.pair_results:
-                f.write(f"- {pair_result.case_name}\n")
-            f.write("\n")
-            
-            # 可以在这里添加总体统计信息
-
-        self.logger.info(f"总体分析报告已生成: {report_path}")

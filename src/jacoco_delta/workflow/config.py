@@ -13,10 +13,10 @@ class Config:
 
     def __init__(self, app_package: str, 
             apk_path: str,
-            app_source_path: str, 
-            app_classfiles_path: str, 
+            app_source_dir: str, 
+            app_classfiles_dir: str, 
             coverage_ec_path: str,
-            report_output_path: str,
+            report_output_dir: str,
             device_serial: Optional[str] = None, 
             adb_path: str = "adb",
             jacococli_jar_path: str = ""
@@ -37,30 +37,31 @@ class Config:
         """
         self.app_package = app_package
         self.apk_path = apk_path
-        self.app_source_path = app_source_path
-        self.app_classfiles_path = app_classfiles_path
+        self.app_source_dir = app_source_dir
+        self.app_classfiles_dir = app_classfiles_dir
         self.coverage_ec_path = coverage_ec_path
-        self.report_output_path = report_output_path
+        self.report_output_dir = report_output_dir
         self.device_serial = device_serial
         self.adb_path = adb_path
         self.jacococli_jar_path = jacococli_jar_path
         self.logger = get_logger("config")
 
-        os.makedirs(self.report_output_path, exist_ok=True)
+        os.makedirs(self.report_output_dir, exist_ok=True)
 
         if not self.adb_path:
             self.adb_path = "adb"
 
         if not self.jacococli_jar_path:
             self._default_jacococli_jar_path()
+
         self._check_config_validity()
 
         self.logger.info(f"配置初始化完成, 应用包名: {self.app_package}, \
                         APK路径: {self.apk_path}, \
-                        源代码路径: {self.app_source_path}, \
-                        类文件路径: {self.app_classfiles_path}, \
+                        源代码目录: {self.app_source_dir}, \
+                        类文件目录: {self.app_classfiles_dir}, \
                         覆盖率数据路径: {self.coverage_ec_path}, \
-                        报告输出路径: {self.report_output_path}, \
+                        报告输出目录: {self.report_output_dir}, \
                         设备序列号: {self.device_serial}, \
                         ADB路径: {self.adb_path}, \
                         JaCoCo CLI JAR路径: {self.jacococli_jar_path}".replace(" ", "").replace(",", "\n"))
@@ -83,11 +84,11 @@ class Config:
     def _check_config_validity(self):
         """检查配置是否完整, 且路径是否存在"""
         # 检查是否有任何属性为空
-        if not all([self.app_package, self.apk_path, self.app_source_path, self.app_classfiles_path]):
-            raise ValueError("配置中存在空值，请检查app_package, apk_path, app_source_path, app_classfiles_path")
+        if not all([self.app_package, self.apk_path, self.app_source_dir, self.app_classfiles_dir]):
+            raise ValueError("配置中存在空值，请检查app_package, apk_path, app_source_dir, app_classfiles_dir")
 
         # 检查路径是否存在
-        for path in [self.app_source_path, self.app_classfiles_path]:
+        for path in [self.app_source_dir, self.app_classfiles_dir]:
             if not os.path.exists(path):
                 raise FileNotFoundError(f"路径不存在: {path}")
 

@@ -118,4 +118,3 @@ class PairAnalysisResult:
 class FullAnalysisResult:
     """完整分析结果数据类"""
     pair_results: List[PairAnalysisResult]
-    overall_diff_result: CoverageDiffResult

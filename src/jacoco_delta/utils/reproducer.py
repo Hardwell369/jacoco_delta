@@ -1,11 +1,8 @@
 """
-错误 reproducer 模块, 用于自动化重现bug, 并收集必要的信息
+reproducer 模块, 用于自动化重现测试用例, 并收集必要的信息
 """
 
-# 调用bug_reproducer分别执行正确的测试用例和错误的测试用例, 并收集覆盖率数据
-
 import os
-# import subprocess
 import time
 from typing import Optional, Callable
 
@@ -83,6 +80,9 @@ class Reproducer:
             
             # 清除应用数据
             self.adb.clear_app_data(self.app_package, self.device_serial)
+
+            # 卸载应用
+            self.adb.uninstall_app(self.app_package, self.device_serial)
 
             self.logger.info("测试环境已重置")
         except AdbError as e:
@@ -205,7 +205,7 @@ class Reproducer:
 
         # 检查Java环境
         if not shutil.which("java"):
-            raise EnvironmentError("未找到Java环境，请确保已安装Java并配置了PATH")
+            raise EnvironmentError("未找到Java环境, 请确保已安装Java并配置了PATH")
         
         output_dir = os.path.dirname(xml_path)
         if not os.path.exists(output_dir):
@@ -231,7 +231,7 @@ class Reproducer:
             # 检查执行结果
             if result.returncode != 0:
                 error_msg = f"JaCoCo转换失败: {result.stderr}"
-                # 创建一个简单的占位XML文件，避免后续处理出错
+                # 创建一个简单的占位XML文件, 避免后续处理出错
                 self._create_placeholder_xml(xml_path, error_msg)
                 raise RuntimeError(error_msg)
                 
@@ -240,14 +240,14 @@ class Reproducer:
         except subprocess.TimeoutExpired:
             raise RuntimeError("JaCoCo转换超时（超过5分钟）")
         except Exception as e:
-            # 创建一个简单的占位XML文件，避免后续处理出错
+            # 创建一个简单的占位XML文件, 避免后续处理出错
             self._create_placeholder_xml(xml_path, str(e))
             raise RuntimeError(f"JaCoCo转换过程中发生错误: {str(e)}")
 
 
     def _create_placeholder_xml(self, xml_path: str, error_message: str) -> None:
         """
-        创建占位XML文件，当转换失败时使用
+        创建占位XML文件, 当转换失败时使用
         
         Args:
             xml_path: XML文件路径
@@ -263,7 +263,7 @@ class Reproducer:
                 f.write(f'  </sessioninfo>\n')
                 f.write('</report>\n')
         except Exception:
-            # 即使创建占位文件失败，也不应该影响主流程
+            # 即使创建占位文件失败, 也不应该影响主流程
             pass
 
 
@@ -305,39 +305,3 @@ class Reproducer:
         for test_case_name in all_test_cases_name:
             real_test_case = self.data[test_case_name].test_case
             self.reproduce_test_case(real_test_case)
-
-
-    def generate_reproduction_report(self, report_path: str) -> None:
-        """
-        生成测试报告
-        
-        Args:
-            report_path: 报告保存路径
-        """
-        report_file_path = os.path.join(report_path, "reproduction_report.md")
-        with open(report_file_path, 'w', encoding='utf-8') as f:
-            f.write("# Bug复现测试报告\n\n")
-            f.write(f"生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            
-            # 写入测试结果
-            f.write("## 测试结果\n\n")
-            for test_case_name in self.data.keys():
-                f.write(f"### {test_case_name}\n")
-                f.write(f"- 状态: {self.data[test_case_name].result.status.value}\n")
-                f.write(f"- 执行时间: {self.data[test_case_name].result.execution_time:.2f}秒\n")
-                f.write(f"- 时间戳: {self.data[test_case_name].result.timestamp}\n")
-                if self.data[test_case_name].result.error_message:
-                    f.write(f"- 错误信息: {self.data[test_case_name].result.error_message}\n")
-                f.write("\n")
-            
-            # 写入覆盖率数据
-            f.write("## 覆盖率数据\n\n")
-            for test_case_name in self.data.keys():
-                f.write(f"### {test_case_name}\n")
-                for coverage_data in self.data[test_case_name].coverage_data:
-                    f.write(f"- XML路径: {coverage_data.xml_path}\n")
-                    f.write(f"- 时间戳: {coverage_data.timestamp}\n")
-                    f.write("\n")
-                f.write("\n")
-        
-        self.logger.info(f"测试报告已生成: {report_path}")

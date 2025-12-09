@@ -51,9 +51,9 @@ from jacoco_delta.config import Config
 # 创建配置
 config = Config(
     app_package="com.example.app",
-    app_source_path="/path/to/source",
-    app_classfiles_path="/path/to/classes",
-    report_output_path="/path/to/output"
+    app_source_dir="/path/to/source",
+    app_classfiles_dir="/path/to/classes",
+    report_output_dir="/path/to/output"
 )
 
 # 创建运行器
