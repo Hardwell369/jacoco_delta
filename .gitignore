@@ -5,6 +5,7 @@ build/
 dev/
 dist/
 drawio/
+experiments/
 report/
 reports/
 tests/

@@ -610,7 +610,6 @@ class ReportGenerator:
             line_css_style()
         )
         
-        # ========== 新增：添加固定导航栏 ==========
         html_content.append('<!-- 固定导航栏 -->')
         html_content.append('<div class="fixed-header">')
         html_content.append(f'    <h1>{result.case_name} 行覆盖率差异可视化报告</h1>')
@@ -629,8 +628,6 @@ class ReportGenerator:
         
         # 添加主内容区域
         html_content.append('<div class="main-content">')
-        # 移除主内容区域的h1标题(已移到固定导航栏)
-        # html_content.append(f'<h1>{result.case_name} 行覆盖率差异可视化报告</h1>')
         html_content.append(f'<p>生成时间: {self._get_current_time()}</p>')
         
         # 处理行覆盖率差异
@@ -701,8 +698,6 @@ class ReportGenerator:
         
         # 添加主内容区域
         html_content.append('<div class="main-content">')
-        # 移除主内容区域的h1标题(已移到固定导航栏)
-        # html_content.append(f'<h1>{result.case_name} 分支覆盖率差异可视化报告</h1>')
         html_content.append(f'<p>生成时间: {self._get_current_time()}</p>')
         
         # 处理分支覆盖率差异
@@ -751,7 +746,7 @@ class ReportGenerator:
         生成综合报告, 整合总体分析报告和Bug复现测试报告
         
         Args:
-            full_result: 完整分析结果
+            full_result: 成对测试用例的信息
             reproducer_data: Reproducer的数据, 包含测试结果和覆盖率数据
             output_dir: 输出目录
         """
@@ -783,36 +778,51 @@ class ReportGenerator:
             case_name = pair_result.case_name
             bug_result_data = reproducer_data[f"bug_{case_name}"]
             correct_result_data = reproducer_data[f"correct_{case_name}"]
-            
-            # 创建子目录并生成差异报告
-            diff_report_dir = os.path.join(output_dir, case_name)
-            data_dir = os.path.join(diff_report_dir, "data")
-            os.makedirs(data_dir, exist_ok=True)
-            line_diff_report_path, branch_diff_report_path = self.generate_diff_report(pair_result, diff_report_dir)
-            self.generate_all_data(pair_result, data_dir)
+            line_diff_report_path = pair_result.line_diff_report_path
+            branch_diff_report_path = pair_result.branch_diff_report_path
             
             # 为每个测试用例创建一个卡片
             html_content.append(f'<div class="test-case-card">')
             html_content.append(f'<h3>{pair_result.case_name}</h3>')
             
             # Bug测试结果
+            # 前置条件执行结果
             html_content.append('<div class="test-result-group">')
-            html_content.append('<h4>Bug测试结果</h4>')
-            html_content.append(f'<p>状态: <span class="status {bug_result_data.result.status.value.lower()}">{bug_result_data.result.status.value}</span></p>')
-            html_content.append(f'<p>执行时间: {bug_result_data.result.execution_time:.2f}秒</p>')
-            html_content.append(f'<p>开始时间戳: {bug_result_data.result.timestamp}</p>')
-            if bug_result_data.result.error_message:
-                html_content.append(f'<p class="error-message">错误信息: {bug_result_data.result.error_message}</p>')
+            html_content.append('<h4>Bug测试用例: 前置条件执行结果</h4>')
+            html_content.append(f'<p>状态: <span class="status {bug_result_data.precondition_result.status.value.lower()}">{bug_result_data.precondition_result.status.value}</span></p>')
+            html_content.append(f'<p>执行时间: {bug_result_data.precondition_result.execution_time:.2f}秒</p>')
+            html_content.append(f'<p>开始时间戳: {bug_result_data.precondition_result.timestamp}</p>')
+            if bug_result_data.precondition_result.error_message:
+                html_content.append(f'<p class="error-message">错误信息: {bug_result_data.precondition_result.error_message}</p>')
+            html_content.append('</div>')
+            # 属性执行结果
+            html_content.append('<div class="test-result-group">')
+            html_content.append('<h4>Bug测试用例: 属性执行结果</h4>')
+            html_content.append(f'<p>状态: <span class="status {bug_result_data.property_result.status.value.lower()}">{bug_result_data.property_result.status.value}</span></p>')
+            html_content.append(f'<p>执行时间: {bug_result_data.property_result.execution_time:.2f}秒</p>')
+            html_content.append(f'<p>开始时间戳: {bug_result_data.property_result.timestamp}</p>')
+            if bug_result_data.property_result.error_message:
+                html_content.append(f'<p class="error-message">错误信息: {bug_result_data.property_result.error_message}</p>')
             html_content.append('</div>')
             
             # Correct测试结果
+            # 前置条件执行结果
             html_content.append('<div class="test-result-group">')
-            html_content.append('<h4>Correct测试结果</h4>')
-            html_content.append(f'<p>状态: <span class="status {correct_result_data.result.status.value.lower()}">{correct_result_data.result.status.value}</span></p>')
-            html_content.append(f'<p>执行时间: {correct_result_data.result.execution_time:.2f}秒</p>')
-            html_content.append(f'<p>开始时间戳: {correct_result_data.result.timestamp}</p>')
-            if correct_result_data.result.error_message:
-                html_content.append(f'<p class="error-message">错误信息: {correct_result_data.result.error_message}</p>')
+            html_content.append('<h4>Correct测试用例: 前置条件执行结果</h4>')
+            html_content.append(f'<p>状态: <span class="status {correct_result_data.precondition_result.status.value.lower()}">{correct_result_data.precondition_result.status.value}</span></p>')
+            html_content.append(f'<p>执行时间: {correct_result_data.precondition_result.execution_time:.2f}秒</p>')
+            html_content.append(f'<p>开始时间戳: {correct_result_data.precondition_result.timestamp}</p>')
+            if correct_result_data.precondition_result.error_message:
+                html_content.append(f'<p class="error-message">错误信息: {correct_result_data.precondition_result.error_message}</p>')
+            html_content.append('</div>')
+            # 属性执行结果
+            html_content.append('<div class="test-result-group">')
+            html_content.append('<h4>Correct测试用例: 属性执行结果</h4>')
+            html_content.append(f'<p>状态: <span class="status {correct_result_data.property_result.status.value.lower()}">{correct_result_data.property_result.status.value}</span></p>')
+            html_content.append(f'<p>执行时间: {correct_result_data.property_result.execution_time:.2f}秒</p>')
+            html_content.append(f'<p>开始时间戳: {correct_result_data.property_result.timestamp}</p>')
+            if correct_result_data.property_result.error_message:
+                html_content.append(f'<p class="error-message">错误信息: {correct_result_data.property_result.error_message}</p>')
             html_content.append('</div>')
             
             # 报告链接

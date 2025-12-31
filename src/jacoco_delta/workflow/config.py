@@ -15,7 +15,7 @@ class Config:
             apk_path: str,
             app_source_dir: str, 
             app_classfiles_dir: str, 
-            coverage_ec_path: str,
+            ec_file_path: str,
             report_output_dir: str,
             device_serial: Optional[str] = None, 
             adb_path: str = "adb",
@@ -27,10 +27,10 @@ class Config:
         Args:
             app_package: app包名
             apk_path: apk文件路径
-            app_source_path: app源代码路径
-            app_classfiles_path: app编译后的类文件路径
-            coverage_ec_path: 覆盖率数据文件路径(在设备上的路径)
-            report_output_path: 报告输出路径(必须为文件夹路径)
+            app_source_dir: app源代码路径
+            app_classfiles_dir: app编译后的类文件路径
+            ec_file_path: 覆盖率数据文件路径(在设备上的路径)
+            report_output_dir: 报告输出路径(必须为文件夹路径)
             device_serial: 设备序列号, 默认为None, 则使用默认设备
             adb_path: ADB路径, 默认为None, 则使用系统环境变量中的adb
             jacococli_jar_path: JaCoCo CLI JAR路径, 默认为None, 则使用项目根目录下的jacococli.jar
@@ -39,7 +39,7 @@ class Config:
         self.apk_path = apk_path
         self.app_source_dir = app_source_dir
         self.app_classfiles_dir = app_classfiles_dir
-        self.coverage_ec_path = coverage_ec_path
+        self.ec_file_path = ec_file_path
         self.report_output_dir = report_output_dir
         self.device_serial = device_serial
         self.adb_path = adb_path
@@ -60,7 +60,7 @@ class Config:
                         APK路径: {self.apk_path}, \
                         源代码目录: {self.app_source_dir}, \
                         类文件目录: {self.app_classfiles_dir}, \
-                        覆盖率数据路径: {self.coverage_ec_path}, \
+                        覆盖率数据路径: {self.ec_file_path}, \
                         报告输出目录: {self.report_output_dir}, \
                         设备序列号: {self.device_serial}, \
                         ADB路径: {self.adb_path}, \
@@ -92,3 +92,4 @@ class Config:
             if not os.path.exists(path):
                 raise FileNotFoundError(f"路径不存在: {path}")
 
+    

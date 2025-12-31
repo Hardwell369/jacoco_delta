@@ -71,12 +71,8 @@ class WorkflowRunner:
             )
             pair_results.append(pair_result)
         
-        # 计算总体差异
-        # overall_diff_result = self._calculate_overall_diff(pair_results)
-        
         full_result = FullAnalysisResult(
             pair_results=pair_results,
-            # overall_diff_result=overall_diff_result
         )
         
         # 生成总体报告
@@ -88,10 +84,11 @@ class WorkflowRunner:
 
 
     def _run_pair_analysis(self, 
-                          pair_case: PairTestCase,
-                          init_operation: Callable, 
-                          ec_file_generator: Callable,
-                          output_dir: str) -> PairAnalysisResult:
+                        pair_case: PairTestCase,
+                        init_operation: Callable, 
+                        ec_file_generator: Callable,
+                        output_dir: str
+    ) -> PairAnalysisResult:
         """
         执行成对测试用例分析
         
@@ -100,43 +97,43 @@ class WorkflowRunner:
             output_dir: 输出目录
             
         Returns:
-            成对分析结果
+            成对分析结果, 行覆盖率差异报告路径, 分支覆盖率差异报告路径
         """
         self.logger.info(f"执行成对测试用例分析: {pair_case.bug_case.name} <-> {pair_case.correct_case.name}")
         
         # 1. 执行bug复现流程并收集覆盖率数据
         self.logger.info("1. 执行bug复现流程...")
-        bug_before_xml, bug_after_xml = self._run_single_flow(
+        bug_precondition_xml, bug_property_xml = self._run_single_flow(
             pair_case.bug_case, init_operation, ec_file_generator, output_dir
         )
         
         # 2. 执行正确流程并收集覆盖率数据
         self.logger.info("2. 执行正确流程...")
-        correct_before_xml, correct_after_xml = self._run_single_flow(
+        correct_precondition_xml, correct_property_xml = self._run_single_flow(
             pair_case.correct_case, init_operation, ec_file_generator, output_dir
         )
         
         # 3. 解析XML覆盖率文件
         self.logger.info("3. 解析覆盖率数据...")
-        bug_before_line_cov = parse_jacoco_line_coverage(bug_before_xml)
-        bug_before_branch_cov = parse_jacoco_branch_coverage(bug_before_xml)
-        bug_after_line_cov = parse_jacoco_line_coverage(bug_after_xml)
-        bug_after_branch_cov = parse_jacoco_branch_coverage(bug_after_xml)
+        bug_precondition_line_cov = parse_jacoco_line_coverage(bug_precondition_xml)
+        bug_precondition_branch_cov = parse_jacoco_branch_coverage(bug_precondition_xml)
+        bug_property_line_cov = parse_jacoco_line_coverage(bug_property_xml)
+        bug_property_branch_cov = parse_jacoco_branch_coverage(bug_property_xml)
         
-        correct_before_line_cov = parse_jacoco_line_coverage(correct_before_xml)
-        correct_before_branch_cov = parse_jacoco_branch_coverage(correct_before_xml)
-        correct_after_line_cov = parse_jacoco_line_coverage(correct_after_xml)
-        correct_after_branch_cov = parse_jacoco_branch_coverage(correct_after_xml)
+        correct_precondition_line_cov = parse_jacoco_line_coverage(correct_precondition_xml)
+        correct_precondition_branch_cov = parse_jacoco_branch_coverage(correct_precondition_xml)
+        correct_property_line_cov = parse_jacoco_line_coverage(correct_property_xml)
+        correct_property_branch_cov = parse_jacoco_branch_coverage(correct_property_xml)
         
         # 4. 计算覆盖率增量
         self.logger.info("4. 计算覆盖率增量...")
         bug_incremental = self._calculate_incremental_coverage(
-            bug_before_line_cov, bug_before_branch_cov,
-            bug_after_line_cov, bug_after_branch_cov
+            bug_precondition_line_cov, bug_precondition_branch_cov,
+            bug_property_line_cov, bug_property_branch_cov
         )
         correct_incremental = self._calculate_incremental_coverage(
-            correct_before_line_cov, correct_before_branch_cov,
-            correct_after_line_cov, correct_after_branch_cov
+            correct_precondition_line_cov, correct_precondition_branch_cov,
+            correct_property_line_cov, correct_property_branch_cov
         )
         
         # 5. 执行增量差异分析
@@ -153,13 +150,27 @@ class WorkflowRunner:
         result = PairAnalysisResult(
             case_name=pair_case.case_name,
             diff_result=diff_result,
-            bug_before_xml=bug_before_xml,
-            bug_after_xml=bug_after_xml,
-            correct_before_xml=correct_before_xml,
-            correct_after_xml=correct_after_xml,
+            bug_precondition_xml=bug_precondition_xml,
+            bug_property_xml=bug_property_xml,
+            correct_precondition_xml=correct_precondition_xml,
+            correct_property_xml=correct_property_xml,
             bug_incremental_coverage=bug_incremental,
-            correct_incremental_coverage=correct_incremental
+            correct_incremental_coverage=correct_incremental,
+            line_diff_report_path="",
+            branch_diff_report_path=""
         )
+
+        # 7. 保存中间数据
+        self.logger.info("7. 保存中间数据...")
+        data_dir = os.path.join(output_dir, "data")
+        os.makedirs(data_dir, exist_ok=True)
+        self.report_generator.generate_all_data(result, data_dir)
+
+        # 8. 生成差异报告
+        self.logger.info("8. 生成差异报告...")
+        line_diff_report_path, branch_diff_report_path = self.report_generator.generate_diff_report(result, output_dir)
+        result.line_diff_report_path = line_diff_report_path
+        result.branch_diff_report_path = branch_diff_report_path
         
         return result
 
@@ -175,63 +186,29 @@ class WorkflowRunner:
             output_dir: 输出目录
             
         Returns:
-            (before_xml_path, after_xml_path) 前后XML文件路径元组
+            (precondition_xml_path, property_xml_path) 前置条件和属性XML文件路径元组
         """
-        # 添加测试用例
-        self.reproducer.add_test_case(test_case)
-        
-        # 设置测试环境
-        self.reproducer.setup_test_environment(init_operation)
-        
-        try:
-            # 收集执行前的覆盖率数据
-            self.logger.info(f"收集{test_case.name}执行前的覆盖率数据...")
-            before_ec_path = self.config.coverage_ec_path
-            before_output_dir = os.path.join(output_dir, f"{test_case.name}_before")
-            os.makedirs(before_output_dir, exist_ok=True)
-            before_coverage_data = self.reproducer.collect_coverage_data(
-                ec_file_generator,
-                before_ec_path, 
-                before_output_dir, 
-                self.config.jacococli_jar_path, 
-                self.config.app_classfiles_dir, 
-                self.config.app_source_dir, 
-                test_case.name
-            )
-            before_xml_path = before_coverage_data.xml_path
-            
-            # 执行测试用例
-            self.logger.info(f"执行测试用例: {test_case.name}")
-            self.reproducer.execute_test_case(test_case)
-            
-            # 收集执行后的覆盖率数据
-            self.logger.info(f"收集{test_case.name}执行后的覆盖率数据...")
-            after_ec_path = self.config.coverage_ec_path
-            after_output_dir = os.path.join(output_dir, f"{test_case.name}_after")
-            os.makedirs(after_output_dir, exist_ok=True)
-            after_coverage_data = self.reproducer.collect_coverage_data(
-                ec_file_generator,
-                after_ec_path, 
-                after_output_dir, 
-                self.config.jacococli_jar_path, 
-                self.config.app_classfiles_dir, 
-                self.config.app_source_dir, 
-                test_case.name
-            )
-            after_xml_path = after_coverage_data.xml_path
+        # 执行测试用例
+        data = self.reproducer.reproduce_test_case(test_case,
+                                                    output_dir,
+                                                    ec_file_generator,
+                                                    self.config.ec_file_path,
+                                                    self.config.jacococli_jar_path, 
+                                                    self.config.app_classfiles_dir, 
+                                                    self.config.app_source_dir,
+                                                    init_operation)
 
-            return before_xml_path, after_xml_path
-            
-        finally:
-            # 重置环境
-            self.reproducer.reset_environment()
+        precondition_xml_path = data.precondition_coverage_data.xml_path
+        property_xml_path = data.property_coverage_data.xml_path
+
+        return precondition_xml_path, property_xml_path
 
 
     def _calculate_incremental_coverage(self, 
-                                    before_line_cov: LineCoverageData,
-                                    before_branch_cov: BranchCoverageData,
-                                    after_line_cov: LineCoverageData,
-                                    after_branch_cov: BranchCoverageData
+                                    precondition_line_cov: LineCoverageData,
+                                    precondition_branch_cov: BranchCoverageData,
+                                    property_line_cov: LineCoverageData,
+                                    property_branch_cov: BranchCoverageData
     ) -> dict:
         """
         计算覆盖率增量 after - before
@@ -239,8 +216,8 @@ class WorkflowRunner:
         Returns:
             包含行覆盖率和分支覆盖率增量的字典
         """
-        line_incremental = calculate_line_coverage_increment(before_line_cov, after_line_cov)
-        branch_incremental = calculate_branch_coverage_increment(before_branch_cov, after_branch_cov)
+        line_incremental = calculate_line_coverage_increment(precondition_line_cov, property_line_cov)
+        branch_incremental = calculate_branch_coverage_increment(precondition_branch_cov, property_branch_cov)
         
         return {
             "line_coverage_incremental": line_incremental,

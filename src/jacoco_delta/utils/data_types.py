@@ -54,7 +54,8 @@ class TestStatus(Enum):
 class TestCase:
     """测试用例数据类"""
     name: str
-    reproduce: Callable  # 具体的执行函数
+    preconditions: Callable  # 测试用例的前置条件函数
+    property: Callable  # 测试用例的属性函数
 
 
 @dataclass
@@ -77,13 +78,20 @@ class CoverageData:
 class TestData:
     """测试用例数据类"""
     test_case: TestCase
-    result: TestResult
-    coverage_data: List[CoverageData]
+    precondition_result: TestResult
+    property_result: TestResult
+    precondition_coverage_data: CoverageData
+    property_coverage_data: CoverageData
 
 
 class PairTestCase:
     """成对测试用例数据类"""
-    def __init__(self, case_name: str, bug_reproduce: Callable, correct_reproduce: Callable):
+    def __init__(self, case_name: str, 
+                bug_preconditions: Callable, 
+                bug_property: Callable, 
+                correct_preconditions: Callable, 
+                correct_property: Callable
+    ):
         """
         初始化成对测试用例
         
@@ -94,8 +102,8 @@ class PairTestCase:
         """
         bug_case_prefix = "bug_"
         correct_case_prefix = "correct_"
-        bug_case = TestCase(bug_case_prefix + case_name, bug_reproduce)
-        correct_case = TestCase(correct_case_prefix + case_name, correct_reproduce)
+        bug_case = TestCase(bug_case_prefix + case_name, bug_preconditions, bug_property)
+        correct_case = TestCase(correct_case_prefix + case_name, correct_preconditions, correct_property)
         self.case_name = case_name
         self.bug_case = bug_case
         self.correct_case = correct_case
@@ -106,12 +114,14 @@ class PairAnalysisResult:
     """成对测试用例分析结果数据类"""
     case_name: str
     diff_result: CoverageDiffResult
-    bug_before_xml: str  # xml路径
-    bug_after_xml: str 
-    correct_before_xml: str 
-    correct_after_xml: str
+    bug_precondition_xml: str  # xml路径
+    bug_property_xml: str 
+    correct_precondition_xml: str 
+    correct_property_xml: str 
     bug_incremental_coverage: dict  # 包括行覆盖率和分支覆盖率["line_coverage_incremental", "branch_coverage_incremental"]
     correct_incremental_coverage: dict  # 包括行覆盖率和分支覆盖率["line_coverage_incremental", "branch_coverage_incremental"]
+    line_diff_report_path: str   # 行覆盖率差异报告路径
+    branch_diff_report_path: str  # 分支覆盖率差异报告路径
 
 
 @dataclass
